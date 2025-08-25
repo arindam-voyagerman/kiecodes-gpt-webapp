@@ -1,46 +1,56 @@
-import {MdSend} from "react-icons/md";
-import {useState} from "react";
+import React, { useState, useRef, useEffect } from 'react';
+import { HiPaperAirplane } from 'react-icons/hi';
 
-export default function ChatInput({disabled, onSend}) {
+export default function ChatInput({ disabled, onSend, placeholder = "Type your message..." }) {
     const [message, setMessage] = useState("");
-    return (
+    const textareaRef = useRef(null);
 
-            <form
-                className="border-2 border-slate-400 rounded-lg p-2 flex flex-row m-2 text-slate-50"
-                onSubmit={(e) => {
-                    e.preventDefault();
-                    onSend(message);
-                    setMessage("");
-                }}
-                autoComplete="off"
-            >
-                <input
-                    name="message"
-                    placeholder="What can I do for you today, Coder?"
-                    className={
-                        "w-full " +
-                        "bg-slate-700 " +
-                        "focus:outline-none "
-                    }
+    // Auto-resize textarea
+    useEffect(() => {
+        const textarea = textareaRef.current;
+        if (textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+        }
+    }, [message]);
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (message.trim() && !disabled) {
+            onSend(message.trim());
+            setMessage("");
+        }
+    };
+
+    const handleKeyPress = (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSubmit(e);
+        }
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="chat-input-container">
+            <div className="chat-input-wrapper">
+                <textarea
+                    ref={textareaRef}
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                />
-                <button
+                    onKeyPress={handleKeyPress}
+                    placeholder={placeholder}
+                    className="chat-input"
                     disabled={disabled}
-                    className={
-                        "bg-slate-500 " +
-                        "text-white " +
-                        "font-bold " +
-                        "py-2 px-4 " +
-                        "rounded " +
-                        "hover:bg-pink-400 " +
-                        "disabled:bg-slate-600 " +
-                        "disabled:text-slate-400"
-                    }
-                >
-                    <MdSend/>
-                </button>
-            </form>
-
-    )
+                    rows={1}
+                />
+            </div>
+            <button
+                type="submit"
+                disabled={disabled || !message.trim()}
+                className="send-button"
+                title="Send message"
+            >
+                <HiPaperAirplane />
+            </button>
+        </form>
+    );
 }

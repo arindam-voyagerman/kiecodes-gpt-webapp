@@ -54,7 +54,7 @@ async def post_new():
     thread = await client.beta.threads.create()
     await client.beta.threads.messages.create(
         thread_id=thread.id,
-        content="Greet the user and tell it about yourself and ask it what it is looking for.",
+        content="You are the Newtown School AI Assistant. Greet the user warmly and introduce yourself as their helpful assistant for all Newtown School information. Let them know you can help with admissions, schedules, events, academic programs, school policies, contact information, and general school questions. Ask what specific information they're looking for today.",
         role="user",
         metadata={
             "type": "hidden"

@@ -1,66 +1,86 @@
-import React, {useState} from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
-import Header from "./components/Header";
+import ChatHeader from "./components/ChatHeader";
 import ChatInput from "./components/ChatInput";
 import ChatMessage from "./components/ChatMessage";
-import ChatVideoEmbedding from "./components/ChatVideoEmbedding";
-import ChatStatusIndicator from "./components/ChatStatusIndicator";
-import Loading from "./components/Loading";
+import TypingIndicator from "./components/TypingIndicator";
+import WelcomeMessage from "./components/WelcomeMessage";
+import StatusIndicator from "./components/StatusIndicator";
 import { useThread } from './hooks/useThread';
 import { useRunPolling } from './hooks/useRunPolling';
 import { useRunRequiredActionsProcessing } from './hooks/useRunRequiredActionsProcessing';
 import { useRunStatus } from './hooks/useRunStatus';
-import {postMessage} from "./services/api";
+import { postMessage } from "./services/api";
 
 function App() {
     const [run, setRun] = useState(undefined);
-    const { threadId, messages, setActionMessages, clearThread} = useThread(run, setRun);
+    const messagesEndRef = useRef(null);
+    const { threadId, messages, setActionMessages, clearThread } = useThread(run, setRun);
+    
     useRunPolling(threadId, run, setRun);
     useRunRequiredActionsProcessing(run, setRun, setActionMessages);
     const { status, processing } = useRunStatus(run);
 
-    let messageList = messages
-        .toReversed()
+    // Auto-scroll to bottom when new messages arrive
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages, processing]);
+
+    const handleSendMessage = async (message) => {
+        if (!message.trim()) return;
+        
+        try {
+            const runData = await postMessage(threadId, message);
+            setRun(runData);
+        } catch (error) {
+            console.error('Failed to send message:', error);
+        }
+    };
+
+    const handleQuickAction = (action) => {
+        handleSendMessage(action);
+    };
+
+    const visibleMessages = messages
         .filter((message) => message.hidden !== true)
-        .map((message) => {
-            if (message.role === "video_embedding") {
-                return <ChatVideoEmbedding
-                    url={message.content}
-                    key={message.id}
-                />
-            } else {
-                return <ChatMessage
-                    message={message.content}
-                    role={message.role}
-                    key={message.id}
-                />
-            }
-        })
+        .map((message, index) => (
+            <ChatMessage
+                key={message.id || index}
+                message={message.content}
+                role={message.role}
+                timestamp={message.created_at}
+            />
+        ));
+
+    const showWelcome = visibleMessages.length === 0 && !processing;
 
     return (
-        <div className="md:container md:mx-auto lg:px-32 h-screen bg-slate-700 flex flex-col">
-            <Header
-                onNewChat={clearThread}
-            />
-            <div className="flex flex-col-reverse grow overflow-scroll">
-                {status !== undefined && (
-                    <ChatStatusIndicator
-                        status={status}
-                    />
+        <div className="App">
+            <ChatHeader onNewChat={clearThread} />
+            
+            <div className="messages-container">
+                {showWelcome && (
+                    <WelcomeMessage onQuickAction={handleQuickAction} />
                 )}
-                {processing && <Loading/>}
-                {messageList}
+                
+                {visibleMessages}
+                
+                {processing && <TypingIndicator />}
+                
+                {status && (
+                    <StatusIndicator status={status} />
+                )}
+                
+                <div ref={messagesEndRef} />
             </div>
-            <div className="my-4">
-                <ChatInput
-                    onSend={(message) => {
-                        postMessage(threadId, message).then(setRun);
-                    }}
-                    disabled={processing}
-                />
-            </div>
+            
+            <ChatInput
+                onSend={handleSendMessage}
+                disabled={processing}
+                placeholder="Ask me about Newtown School..."
+            />
         </div>
-    )
+    );
 }
 
 export default App;

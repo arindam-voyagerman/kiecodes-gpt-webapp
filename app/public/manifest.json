@@ -1,9 +1,9 @@
 {
-  "short_name": "KieCodesGPT",
-  "name": "KieCodesGPT",
+  "short_name": "Newtown Assistant",
+  "name": "Newtown School Assistant",
   "icons": [],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
+  "theme_color": "#2563eb",
   "background_color": "#ffffff"
 }
