@@ -1,13 +1,11 @@
-import {SiOpenai} from "react-icons/si";
+import React from 'react';
+import { HiCog } from 'react-icons/hi';
 
-export default function ChatStatusIndicator({status}) {
-
+export default function StatusIndicator({ status }) {
     return (
-        <div className="flex justify-center">
-            <div className="flex flex-row items-center text-pink-300">
-                <div className="m-2 animate-spin"><SiOpenai /></div>
-                <div>{status}</div>
-            </div>
+        <div className="status-indicator">
+            <HiCog className="status-icon" size={16} />
+            <span>{status}</span>
         </div>
-    )
+    );
 }
