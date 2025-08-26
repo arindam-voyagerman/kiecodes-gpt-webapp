@@ -15,8 +15,16 @@ import { postMessage } from "./services/api";
 function App() {
     const [run, setRun] = useState(undefined);
     const messagesEndRef = useRef(null);
-    const { threadId, messages, setActionMessages, clearThread } = useThread(run, setRun);
-    
+    // const { threadId, messages, setActionMessages, clearThread } = useThread(run, setRun);
+    const {
+        threadId,
+        messages,
+        optimisticMessages,
+        addOptimisticMessage,
+        setActionMessages,
+        clearThread
+    } = useThread(run, setRun);
+
     useRunPolling(threadId, run, setRun);
     useRunRequiredActionsProcessing(run, setRun, setActionMessages);
     const { status, processing } = useRunStatus(run);
@@ -26,54 +34,84 @@ function App() {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages, processing]);
 
+    // const handleSendMessage = async (message) => {
+    //     if (!message.trim()) return;
+
+    //     try {
+    //         const runData = await postMessage(threadId, message);
+    //         setRun(runData);
+    //     } catch (error) {
+    //         console.error('Failed to send message:', error);
+    //     }
+    // };
     const handleSendMessage = async (message) => {
         if (!message.trim()) return;
-        
+
+        // show immediately
+        addOptimisticMessage({
+            role: "user",
+            content: message,
+            created_at: Date.now() / 1000,
+            tempId: Math.random().toString(36).slice(2), // unique temp key
+        });
+
         try {
             const runData = await postMessage(threadId, message);
             setRun(runData);
         } catch (error) {
-            console.error('Failed to send message:', error);
+            console.error("Failed to send message:", error);
         }
     };
+
 
     const handleQuickAction = (action) => {
         handleSendMessage(action);
     };
 
-    const visibleMessages = messages
+    // const visibleMessages = messages
+    //     .filter((message) => message.hidden !== true)
+    //     .map((message, index) => (
+    //         <ChatMessage
+    //             key={message.id || index}
+    //             message={message.content}
+    //             role={message.role}
+    //             timestamp={message.created_at}
+    //         />
+    //     ));
+    const visibleMessages = [...messages, ...optimisticMessages]
         .filter((message) => message.hidden !== true)
         .map((message, index) => (
             <ChatMessage
-                key={message.id || index}
+                key={message.id || message.tempId || index}
                 message={message.content}
                 role={message.role}
                 timestamp={message.created_at}
             />
         ));
 
+
     const showWelcome = visibleMessages.length === 0 && !processing;
 
     return (
         <div className="App">
             <ChatHeader onNewChat={clearThread} />
-            
+
             <div className="messages-container">
-                {showWelcome && (
+                {/* {showWelcome && (
                     <WelcomeMessage onQuickAction={handleQuickAction} />
-                )}
-                
+                )} */}
+
                 {visibleMessages}
-                
+
                 {processing && <TypingIndicator />}
-                
+
                 {status && (
                     <StatusIndicator status={status} />
                 )}
-                
+
                 <div ref={messagesEndRef} />
             </div>
-            
+
             <ChatInput
                 onSend={handleSendMessage}
                 disabled={processing}
