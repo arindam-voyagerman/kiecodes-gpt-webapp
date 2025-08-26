@@ -8,8 +8,14 @@ from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from dotenv import load_dotenv
+import logging
+import json
 
 load_dotenv()
+
+# Configure logging for debugging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 system_prompt = """
 You are an intelligent, helpful school assistant for The Newtown School. You are designed to provide accurate, relevant,  most recent, latest and updated answers strictly based on information retrieved from the school’s knowledge base via a vector database (RAG system).
@@ -259,19 +265,24 @@ class CreateMessage(BaseModel):
 
 @app.post("/api/new")
 async def post_new():
+    logger.info("Creating new thread")
     thread = await client.beta.threads.create()
-    await client.beta.threads.messages.create(
-        thread_id=thread.id,
-        content=system_prompt,
-        role="user",
-        metadata={
-            "type": "hidden"
-        }
-    )
+    
+    # DEBUG: Log thread creation
+    logger.info(f"Created thread: {thread.id}")
+    
+    # FIXED: Use additional_instructions instead of hidden message
+    # This ensures the system prompt is processed like assistant instructions
     run = await client.beta.threads.runs.create(
         thread_id=thread.id,
-        assistant_id=assistant_id
+        assistant_id=assistant_id,
+        additional_instructions=system_prompt
     )
+
+    # DEBUG: Log run creation
+    logger.info(f"Created run {run.id} for thread {thread.id}")
+    logger.info(f"Initial run status: {run.status}")
+    logger.info(f"Using additional_instructions with length: {len(system_prompt)}")
 
     return RunStatus(
         run_id=run.id,
@@ -284,10 +295,16 @@ async def post_new():
 
 @app.get("/api/threads/{thread_id}/runs/{run_id}")
 async def get_run(thread_id: str, run_id: str):
+    logger.info(f"Fetching run {run_id} for thread {thread_id}")
     run = await client.beta.threads.runs.retrieve(
         thread_id=thread_id,
         run_id=run_id
     )
+
+    # DEBUG: Log run status
+    logger.info(f"Run {run_id} status: {run.status}")
+    if run.last_error:
+        logger.error(f"Run {run_id} error: {run.last_error}")
 
     return RunStatus(
         run_id=run.id,
@@ -300,6 +317,7 @@ async def get_run(thread_id: str, run_id: str):
 
 @app.post("/api/threads/{thread_id}/runs/{run_id}/tool")
 async def post_tool(thread_id: str, run_id: str, tool_outputs: List[ToolOutput]):
+    logger.info(f"Submitting tool outputs for run {run_id}")
     run = await client.beta.threads.runs.submit_tool_outputs(
         run_id=run_id,
         thread_id=thread_id,
@@ -316,9 +334,15 @@ async def post_tool(thread_id: str, run_id: str, tool_outputs: List[ToolOutput])
 
 @app.get("/api/threads/{thread_id}")
 async def get_thread(thread_id: str):
+    logger.info(f"Fetching messages for thread {thread_id}")
     messages = await client.beta.threads.messages.list(
         thread_id=thread_id
     )
+
+    # DEBUG: Log message count and types
+    logger.info(f"Thread {thread_id} has {len(messages.data)} messages")
+    for msg in messages.data:
+        logger.info(f"Message {msg.id}: role={msg.role}, hidden={'type' in msg.metadata and msg.metadata['type'] == 'hidden'}")
 
     result = [
         ThreadMessage(
@@ -338,16 +362,27 @@ async def get_thread(thread_id: str):
 
 @app.post("/api/threads/{thread_id}")
 async def post_thread(thread_id: str, message: CreateMessage):
+    logger.info(f"Adding message to thread {thread_id}: {message.content[:100]}...")
+    
     await client.beta.threads.messages.create(
         thread_id=thread_id,
         content=message.content,
         role="user"
     )
 
+    # DEBUG: Log message creation
+    logger.info(f"Added user message to thread {thread_id}")
+
+    # FIXED: Use additional_instructions for consistent behavior
     run = await client.beta.threads.runs.create(
         thread_id=thread_id,
-        assistant_id=assistant_id
+        assistant_id=assistant_id,
+        additional_instructions=system_prompt
     )
+
+    # DEBUG: Log run creation
+    logger.info(f"Created run {run.id} for thread {thread_id}")
+    logger.info(f"Run status: {run.status}")
 
     return RunStatus(
         run_id=run.id,
